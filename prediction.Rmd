@@ -1,0 +1,105 @@
+---
+title: "Prediction-assignment-writeup"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+if (!require("knitr")) {
+  install.packages("knitr", repos="http://cran.rstudio.com/") 
+  library("knitr")
+}
+
+if (!require("caret")) {
+  install.packages("caret", repos="http://cran.rstudio.com/") 
+  library("caret")
+}
+
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(RColorBrewer)
+library(rattle)
+
+## Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. 
+
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+
+
+
+### Data Collection and Preparation
+library(caret)
+library(rpart)
+library(dplyr)
+library(rpart.plot)
+library(RColorBrewer)
+library(rattle)
+library(randomForest)
+library(gbm)
+library(plyr)
+
+First, lets's collect the data from the source and study it.
+
+```{r loaddara}
+# Download the training data
+download.file(url = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", 
+              destfile = "./pml-training.csv", method = "curl")
+
+# Load the training dataset
+dt_training <- read.csv("./pml-training.csv", na.strings=c("NA","#DIV/0!",""))
+
+# Download the testing data
+download.file(url = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", 
+              destfile = "./pml-testing.csv", method = "curl")
+
+# Load the testing dataset
+dt_testing <- read.csv("./pml-testing.csv", na.strings=c("NA","#DIV/0!",""))
+```
+
+
+Let's clean the data and remove the near zero variance variables or remove all columns that contains NA and also features that are not in the testing dataset. Since we are removing the missing variable dataset, this will help to evolve the model better, as incomplete dataset adds noise.
+
+
+```{r loaddara1}
+features <- names(dt_testing[,colSums(is.na(dt_testing)) == 0])[8:59]
+
+# Only use features used in testing cases.
+dt_training <- dt_training[,c(features,"classe")]
+dt_testing <- dt_testing[,c(features,"problem_id")]
+
+dim(dt_training); dim(dt_testing);
+```
+
+We noted that both dataset are having the same number of variables, 53.
+
+
+### Data Partitioning
+Partitioning the cleanded data set into two data sets,70% for train data, 30% for test data as this will be used for cross validation purpose. This will also help us to estimate the out of sample error of our predictor.
+
+
+```{r loaddara2}
+set.seed(12355)
+
+inTrain <- createDataPartition(dt_training$classe, p=0.6, list=FALSE)
+training <- dt_training[inTrain,]
+testing <- dt_training[-inTrain,]
+
+dim(training);
+dim(testing);
+```
+
+### Data Prediction and Modelling
+
+#### Random Forest
+Using random forest, the out of sample error should be small. The error will be estimated using the 40% testing sample. We should expect an error estimate of < 3%
+
+
+set.seed(12345)
+modFitDT <- rpart(classe ~ ., data = training, method="class", control = rpart.control(method = "cv", number = 10))
+fancyRpartPlot(modFitDT)
+
+
+
+
